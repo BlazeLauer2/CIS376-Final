@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using TMPro;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerWallRunController : MonoBehaviour
@@ -13,7 +15,17 @@ public class PlayerWallRunController : MonoBehaviour
     public float wallCheckDistance = 1f;
     public float wallStickForce = 1f;
 
+    [Header("Game Conditions")]
+    public float winZThreshold = 100f;
+    public float fallYThreshold = -25f;
+
+    public int requiredScore = 50;
+    private int currentScore = 0;
+    private bool gameOver = false;
+
     public float gravity = -10f;
+
+    public TextMeshProUGUI scoreText;
 
     public LayerMask groundLayer;
     public LayerMask wallLayer;
@@ -29,6 +41,7 @@ public class PlayerWallRunController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
+        UpdateScoreUI();
     }
 
     void Update()
@@ -62,8 +75,14 @@ public class PlayerWallRunController : MonoBehaviour
         {
             HandleMovement();
         }
+
+        if (!gameOver)
+        {
+            CheckGameConditions();
+        }
     }
 
+    // Check if the player is grounded (on a platform)
     void HandleGroundCheck()
     {
         isGrounded = Physics.Raycast(transform.position, Vector3.down, 1.1f, groundLayer);
@@ -104,6 +123,7 @@ public class PlayerWallRunController : MonoBehaviour
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             rb.velocity = new Vector3(rb.velocity.x, jumpForce, rb.velocity.z);
+            CountScore();
         }
     }
 
@@ -127,8 +147,8 @@ public class PlayerWallRunController : MonoBehaviour
     {
         StopWallRun();
         Vector3 jumpDirection = wallNormal + Vector3.up;
-        float wallJumpMultiplier = 1.5f;
-        rb.velocity = jumpDirection.normalized * jumpForce * wallJumpMultiplier;
+        rb.velocity = jumpDirection.normalized * jumpForce;
+        CountScore();
     }
 
     void FixedUpdate()
@@ -160,5 +180,68 @@ public class PlayerWallRunController : MonoBehaviour
                 rb.AddForce(Vector3.up * gravity, ForceMode.Acceleration);
             }
         }
+    }
+
+    // Check if the player has fallen off the map or reached the win condition
+    void CheckGameConditions()
+    {
+        if (gameOver) return;
+
+        if (transform.position.y < fallYThreshold)
+        {
+            LoseGame();
+        }
+        else if (transform.position.z >= winZThreshold)
+        {
+            WinGame();
+        }
+    }
+
+    // Count score when the player jumps or wall runs
+    void CountScore()
+    {
+        if (gameOver) return;
+        currentScore++;
+        Debug.Log("Score: " + currentScore);
+
+        if (scoreText != null)
+        {
+            scoreText.text = "Score: " + currentScore;
+        }
+
+        if (currentScore >= requiredScore)
+        {
+            WinGame();
+        }
+    }
+
+    void UpdateScoreUI()
+    {
+        if (scoreText != null)
+        {
+            scoreText.text = "Score: " + currentScore;
+        }
+    }
+
+    void WinGame()
+    {
+        gameOver = true;
+        rb.velocity = Vector3.zero;
+        Debug.Log("You Win!");
+        Invoke("RestartGame", 2f); // Restart the game after 2 seconds
+    }
+
+    void LoseGame()
+    {
+        gameOver = true;
+        rb.velocity = Vector3.zero;
+        Debug.Log("You Lose!");
+        Invoke("RestartGame", 2f);
+    }
+
+    void RestartGame()
+    {
+        Debug.Log("Restarting Game...");
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }
